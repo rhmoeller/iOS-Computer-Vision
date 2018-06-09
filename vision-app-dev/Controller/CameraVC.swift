@@ -26,20 +26,20 @@ class CameraVC: UIViewController {
     
     override func viewDidLoad() {
         super.viewDidLoad()
-        // Do any additional setup after loading the view, typically from a nib.
     }
     
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         previewLayer.frame = cameraView.bounds
+        
+        
     }
     
     override func viewWillAppear(_ animated: Bool) {
         super.viewWillAppear(animated)
         
         let tap = UITapGestureRecognizer(target: self, action: #selector(didTapCameraView))
-//        tap.numberOfTapsRequired = 2
-        tap.numberOfTouchesRequired = 1
+        tap.numberOfTapsRequired = 1
         
         captureSession = AVCaptureSession()
         captureSession.sessionPreset = .hd1920x1080
@@ -66,8 +66,6 @@ class CameraVC: UIViewController {
                 cameraView.addGestureRecognizer(tap)
                 captureSession.startRunning()
             }
-            
-            
         } catch {
             debugPrint(error)
         }
@@ -81,11 +79,7 @@ class CameraVC: UIViewController {
         
         cameraOutput.capturePhoto(with: settings, delegate: self)
     }
-    
-    
-
 }
-
 
 extension CameraVC: AVCapturePhotoCaptureDelegate {
     func photoOutput(_ output: AVCapturePhotoOutput, didFinishProcessingPhoto photo: AVCapturePhoto, error: Error?) {

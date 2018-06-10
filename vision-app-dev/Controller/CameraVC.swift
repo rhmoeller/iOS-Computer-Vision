@@ -11,6 +11,10 @@ import AVFoundation
 import CoreML
 import Vision
 
+enum FlashState {
+    case off, on
+}
+
 class CameraVC: UIViewController {
 
     var captureSession: AVCaptureSession!
@@ -18,13 +22,16 @@ class CameraVC: UIViewController {
     var previewLayer: AVCaptureVideoPreviewLayer!
     
     var photoData: Data?
+    var flashState: FlashState = .off
+    var speechSyntezier = AVSpeechSynthesizer()
     
     @IBOutlet weak var cameraView: UIImageView!
     @IBOutlet weak var capturedImageView: RoundedShadowImageView!
     @IBOutlet weak var informationView: RoundedShadowView!
     @IBOutlet weak var itemNameLabel: UILabel!
     @IBOutlet weak var confidenceLabel: UILabel!
-    
+    @IBOutlet weak var flashToggle: UIButton!
+    @IBOutlet weak var activityIndicator: UIActivityIndicatorView!
     
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -33,8 +40,8 @@ class CameraVC: UIViewController {
     override func viewDidAppear(_ animated: Bool) {
         super.viewDidAppear(animated)
         previewLayer.frame = cameraView.bounds
-        
-        
+        speechSyntezier.delegate = self
+        activityIndicator.isHidden = true
     }
     
     override func viewWillAppear(_ animated: Bool) {
@@ -74,38 +81,66 @@ class CameraVC: UIViewController {
     }
 
     @objc func didTapCameraView()  {
+        cameraView.isUserInteractionEnabled = false
+        activityIndicator.isHidden = false
+        activityIndicator.startAnimating()
+        
         let settings = AVCapturePhotoSettings()
-        
-//
-//        let previewPixelType = settings.availablePreviewPhotoPixelFormatTypes.first!
-//        let previewFormat = [kCVPixelBufferPixelFormatTypeKey as String: previewPixelType, kCVPixelBufferWidthKey as String: 160, kCVPixelBufferHeightKey as String: 160]
-        
         settings.previewPhotoFormat = settings.embeddedThumbnailPhotoFormat
+        switch flashState {
+        case .off:
+            settings.flashMode = .off
+        case .on:
+            settings.flashMode = .on
+        }
         cameraOutput.capturePhoto(with: settings, delegate: self)
     }
     
     func resultsMethod(request: VNRequest, error: Error?) {
         informationView.isHidden = false
-        
-        // Animate info into view
-        
-//        UIView.animate(withDuration: 2.3, animations: {
-//            self.informationView.frame = CGRect(x: 0, y: 100, width: 375, height: 672)
-//        }) { (finished) { }}
+
         
         guard let results = request.results as? [VNClassificationObservation] else { return }
         for classification in results {
             if classification.confidence < 0.5 {
-                self.itemNameLabel.text = "Try again.."
+                let unknownMessage = "Try again.."
+                
+                self.itemNameLabel.text = unknownMessage
+                synteziseSpeech(from: unknownMessage)
                 self.confidenceLabel.text = ""
                 break
             } else {
-                self.itemNameLabel.text = classification.identifier
-                self.confidenceLabel.text = "CONFIDENCE: \(Int(classification.confidence * 100))%"
+                let item = classification.identifier
+                let confidence = Int(classification.confidence * 100)
+                
+                self.itemNameLabel.text = item
+                self.confidenceLabel.text = "CONFIDENCE: \(confidence)%"
+                
+                let sentance = "This looks like a \(item)"
+                synteziseSpeech(from: sentance)
+                
                 break
             }
         }
     }
+    
+    func synteziseSpeech(from string: String) {
+        let speechUtterance = AVSpeechUtterance(string: string)
+        speechSyntezier.speak(speechUtterance)
+    }
+    
+    @IBAction func flashTogglePressed(_ sender: Any) {
+        switch flashState {
+        case .off:
+            flashState = .on
+            flashToggle.setTitle("🌝", for: .normal)
+        case .on:
+            flashState = .off
+            flashToggle.setTitle("🌚", for: .normal)
+        }
+    }
+    
+    
 }
 
 extension CameraVC: AVCapturePhotoCaptureDelegate {
@@ -127,5 +162,14 @@ extension CameraVC: AVCapturePhotoCaptureDelegate {
             let image = UIImage(data: photoData!)
             self.capturedImageView.image = image
         }
+    }
+}
+
+extension CameraVC: AVSpeechSynthesizerDelegate {
+    func speechSynthesizer(_ synthesizer: AVSpeechSynthesizer, didFinish utterance: AVSpeechUtterance) {
+        activityIndicator.stopAnimating()
+        cameraView.isUserInteractionEnabled = true
+        activityIndicator.isHidden = true
+        
     }
 }
